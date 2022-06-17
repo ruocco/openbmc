@@ -140,6 +140,7 @@ EOF
 # $4 ... Compression type
 fitimage_emit_section_kernel() {
 
+	UBOOT_OS=${UBOOT_OS:-'linux'}
 	kernel_csum="${FIT_HASH_ALG}"
 	kernel_sign_algo="${FIT_SIGN_ALG}"
 	kernel_sign_keyname="${UBOOT_SIGN_IMG_KEYNAME}"
@@ -156,7 +157,7 @@ fitimage_emit_section_kernel() {
                         data = /incbin/("$3");
                         type = "${UBOOT_MKIMAGE_KERNEL_TYPE}";
                         arch = "${UBOOT_ARCH}";
-                        os = "linux";
+                        os = "${UBOOT_OS}";
                         compression = "$4";
                         load = <${UBOOT_LOADADDRESS}>;
                         entry = <$ENTRYPOINT>;
