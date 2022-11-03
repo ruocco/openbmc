@@ -86,6 +86,7 @@ of the following environment variables (in any order):
   tcpserial=<port> - specify tcp serial port number
   qemuparams=<xyz> - specify custom parameters to QEMU
   bootparams=<xyz> - specify custom kernel parameters during boot
+  swtpm=<path> - specify the address of a running instance of swtpm
   help, -h, --help: print this text
   -d, --debug: Enable debug output
   -q, --quiet: Hide most output except error messages
@@ -201,6 +202,7 @@ class BaseConfig(object):
         self.network_device = "-device e1000,netdev=net0,mac=@MAC@"
         self.cmdline_ip_slirp = "ip=dhcp"
         self.cmdline_ip_tap = "ip=192.168.7.@CLIENT@::192.168.7.@GATEWAY@:255.255.255.0::eth0:off:8.8.8.8"
+        self.swtpm = ''
         # Use different mac section for tap and slirp to avoid
         # conflicts, e.g., when one is running with tap, the other is
         # running with slirp.
@@ -528,6 +530,8 @@ class BaseConfig(object):
                 self.tcpserial_portnum = '%s' % arg[len('tcpserial='):]
             elif arg.startswith('qemuparams='):
                 self.qemuparams = ' %s' % arg[len('qemuparams='):]
+            elif arg.startswith('swtpm='):
+                self.swtpm = arg[len('swtpm='):]
             elif arg.startswith('bootparams='):
                 self.bootparams = arg[len('bootparams='):]
             elif os.path.exists(arg) or (re.search(':', arg) and re.search('/', arg)):
@@ -1214,6 +1218,12 @@ class BaseConfig(object):
             self.cmdline_ip_tap = self.get('QB_CMDLINE_IP_TAP') or self.cmdline_ip_tap
             self.setup_tap()
 
+    def setup_swtpm(self):
+        if self.swtpm and self.get('QB_SWTPM') != 'none':
+            qemu_tpm_cmdline = self.get('QB_SWTPM')
+            qemu_tpm_cmdline = qemu_tpm_cmdline.replace('@TPMPATH@', self.swtpm)
+            self.set('SWTPM_CMD', qemu_tpm_cmdline)
+
     def setup_rootfs(self):
         if self.get('QB_ROOTFS') == 'none':
             return
@@ -1456,7 +1466,7 @@ class BaseConfig(object):
 
         self.find_qemu()
 
-        self.qemu_opt = "%s %s %s %s %s" % (self.qemu_bin, self.get('NETWORK_CMD'), self.get('QB_RNG'), self.get('ROOTFS_OPTIONS'), self.get('QB_OPT_APPEND').replace('@DEPLOY_DIR_IMAGE@', self.get('DEPLOY_DIR_IMAGE')))
+        self.qemu_opt = "%s %s %s %s %s %s" % (self.qemu_bin, self.get('NETWORK_CMD'), self.get("SWTPM_CMD"), self.get('QB_RNG'), self.get('ROOTFS_OPTIONS'), self.get('QB_OPT_APPEND').replace('@DEPLOY_DIR_IMAGE@', self.get('DEPLOY_DIR_IMAGE')))
 
         for ovmf in self.ovmf_bios:
             format = ovmf.rsplit('.', 1)[-1]
@@ -1649,6 +1659,7 @@ def main():
         config.validate_combos()
         config.print_config()
         config.setup_network()
+        config.setup_swtpm()
         config.setup_rootfs()
         config.setup_final()
         config.start_qemu()
